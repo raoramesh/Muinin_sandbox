@@ -756,7 +756,8 @@ static int check_access(sbcontext_t *sbcontext, int sb_nr, const char *func,
 
 	retval = check_prefixes(sbcontext->deny_prefixes,
 		sbcontext->num_deny_prefixes, abs_path);
-	if (1 == retval)
+
+  if (1 == retval)
 		/* Fall in a read/write denied path, Deny Access */
 		goto out;
 
@@ -934,6 +935,33 @@ out:
 	return result;
 }
 
+static int should_hash(const char *resolved_path) {
+  char *env_var = getenv("SANDBOX_HASH_IGNORE");
+  if (!env_var) {
+    env_var = "/dev:/sys:/proc";
+  }
+
+  char *path_start = env_var;
+  while (*path_start) {
+    char *path_end = strchr(path_start, ':');
+    if (!path_end) {
+      path_end = path_start + strlen(path_start);
+    }
+
+    if (!strncmp(resolved_path, path_start, path_end - path_start)) {
+      return 0;
+    }
+
+    if (*path_end) {
+      path_start = path_end + 1;
+    } else {
+      path_start = path_end;
+    }
+  }
+
+  return 1;
+}
+
 /* Return values:
  *  0: failure, caller should abort
  *  1: things worked out fine
@@ -1014,18 +1042,13 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
     // its hash before the first access.
     sha256_init(&shactx);
     struct stat st;
-    if (stat(resolved_path, &st) != 0) {
-      goto error;
-    }
-    if (S_ISREG(st.st_mode)) {
+    if (stat(resolved_path, &st) == 0 && S_ISREG(st.st_mode) && should_hash(resolved_path)) {
       // Real file, not accessed before, so hash it.
-      int fd = open(resolved_path, O_RDONLY);
+      int fd = sb_open(resolved_path, O_RDONLY, 0);
       if (fd > 0) {
         char buf[4096];
-        uint64_t total_read = 0;
         int len = read(fd, buf, sizeof(buf));
-        while (len > 0 && total_read + len < st.st_size) {
-          total_read += len;
+        while (len > 0) {
           sha256_update(&shactx, buf, len);
           len = read(fd, buf, sizeof(buf));
         }
@@ -1033,6 +1056,7 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
         if (len < 0) {
           goto error;
         }
+
         BYTE hash[32];
         char hash_to_string[65];
         sha256_final(&shactx, hash);
@@ -1051,9 +1075,13 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
     }
   }
 
-	free(absolute_path);
-	if (absolute_path != resolved_path)
+  // Technically, the opposite order is a C standard violation due to use of absolute_path
+  // pointer after free.  A pointer value may be discarded after free along with any other
+  // pointer value which provably aliases the same storage.
+	if (absolute_path != resolved_path) {
 		free(resolved_path);
+  }
+	free(absolute_path);
 
 	errno = old_errno;
 

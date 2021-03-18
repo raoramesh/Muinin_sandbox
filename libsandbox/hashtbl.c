@@ -204,7 +204,7 @@ HashResult hashtbl_next(Hashtable *h, HashResult prev) {
         continue;
       }
 
-      HashBucket *b = (HashBucket *)l->next;
+      b = (HashBucket *)l->next;
       return make_result(b);
     }
 
