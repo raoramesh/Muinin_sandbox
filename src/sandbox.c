@@ -99,11 +99,15 @@ static int setup_sandbox(struct sandbox_info_t *sandbox_info, bool interactive)
 	return 0;
 }
 
-static void print_sandbox_log(char *sandbox_log)
+static void print_sandbox_log(const char *sandbox_quiet, char *sandbox_log)
 {
 	int sandbox_log_file;
 	size_t len;
 	char buffer[8192];
+
+  if (sandbox_quiet && !strcmp(sandbox_quiet, "1")) {
+    return;
+  }
 
 	sandbox_log_file = sb_open(sandbox_log, O_RDONLY, 0);
 	if (-1 == sandbox_log_file) {
@@ -115,12 +119,13 @@ static void print_sandbox_log(char *sandbox_log)
 	sb_eerror("LOG FILE: \"%s\"\n", sandbox_log);
 
 	while (1) {
-		len = sb_read(sandbox_log_file, buffer, sizeof(buffer));
+		len = sb_read(sandbox_log_file, buffer, sizeof(buffer) - 1);
 		if (len == -1) {
 			sb_pwarn("sb_read(logfile) failed");
 			break;
 		} else if (!len)
 			break;
+    buffer[len] = 0;
 		sb_eerror("\n%s", buffer);
 	}
 	sb_close(sandbox_log_file);
@@ -211,6 +216,8 @@ int main(int argc, char **argv)
 	char **argv_bash = NULL;
 
 	char *run_str = "-c";
+
+  const char *sandbox_quiet = getenv("SANDBOX_QUIET");
 
 	/* Process the sandbox opts and leave argc/argv for the target. */
 	parseargs(argc, argv);
@@ -327,14 +334,15 @@ int main(int argc, char **argv)
 	sandbox_environ = NULL;
 
 	dputs("Cleaning up sandbox process");
-	dputs(sandbox_banner);
+  dputs(sandbox_banner);
 	dputs("The protected environment has been shut down.");
 
 	if (rc_file_exists(sandbox_info.sandbox_log)) {
 		sandbox_log_presence = 1;
-		print_sandbox_log(sandbox_info.sandbox_log);
-	} else
+    print_sandbox_log(sandbox_quiet, sandbox_info.sandbox_log);
+	} else {
 		dputs(sandbox_footer);
+  }
 
 	/* Do the right thing and pass the signal back up.  See:
 	 * http://www.cons.org/cracauer/sigint.html

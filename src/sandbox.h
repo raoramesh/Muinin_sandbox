@@ -22,6 +22,7 @@ struct sandbox_info_t {
 	char work_dir[SB_PATH_MAX];
 	char tmp_dir[SB_PATH_MAX];
 	char *home_dir;
+  int sandbox_quiet;
 };
 
 extern char **setup_environ(struct sandbox_info_t *sandbox_info);
