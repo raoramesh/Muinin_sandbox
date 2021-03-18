@@ -15,6 +15,8 @@
 #include "libsandbox.h"
 #include "wrappers.h"
 #include "sb_nr.h"
+#include "hashtbl.h"
+#include "sha256.h"
 
 #define LOG_VERSION			"1.0"
 #define LOG_STRING			"VERSION " LOG_VERSION "\n"
@@ -24,6 +26,7 @@
 #define LOG_FMT_APATH			"FORMAT: A - Absolute Path (not canonical)\n"
 #define LOG_FMT_RPATH			"FORMAT: R - Canonical Path\n"
 #define LOG_FMT_CMDLINE			"FORMAT: C - Command Line\n"
+#define LOG_FMT_IHASH     "FORMAT: I - Hash of file followed by path\n"
 
 char sandbox_lib[SB_PATH_MAX];
 
@@ -53,6 +56,7 @@ static char message_path[SB_PATH_MAX];
 bool sandbox_on = true;
 static bool sb_init = false;
 static bool sb_env_init = false;
+static Hashtable seen_tbl = { 0 };
 int (*sbio_open)(const char *, int, mode_t) = sb_unwrapped_open;
 FILE *(*sbio_popen)(const char *, const char *) = sb_unwrapped_popen;
 
@@ -457,6 +461,7 @@ static bool write_logfile(const char *logfile, const char *func, const char *pat
 			LOG_FMT_APATH
 			LOG_FMT_RPATH
 			LOG_FMT_CMDLINE
+      LOG_FMT_IHASH
 		);
 	/* Already have data in the log, so add a newline to space the
 	 * log entries.
@@ -482,6 +487,55 @@ static bool write_logfile(const char *logfile, const char *func, const char *pat
 		_SB_WRITE_STR("unable to read ");
 		_SB_WRITE_STR(cmdline);
 	}
+	_SB_WRITE_STR("\n");
+
+	ret = true;
+
+ error:
+	sb_close(logfd);
+
+	return ret;
+}
+
+// Log hash
+static bool write_logfile_hash(const char *logfile, const char *path, const char *hash) {
+	struct stat log_stat;
+	int stat_ret;
+	int logfd;
+	bool ret = false;
+
+	stat_ret = lstat(logfile, &log_stat);
+	/* Do not care about failure */
+	errno = 0;
+
+	logfd = sb_open(logfile,
+		O_APPEND | O_WRONLY | O_CREAT | O_CLOEXEC,
+		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (logfd == -1) {
+		sb_eerror("ISE:%s: unable to append logfile: %s\n",
+			__func__, logfile);
+		goto error;
+	}
+
+	if (0 != stat_ret)
+		_SB_WRITE_STR(
+			LOG_STRING
+			LOG_FMT_FUNC
+			LOG_FMT_ACCESS
+			LOG_FMT_PATH
+			LOG_FMT_APATH
+			LOG_FMT_RPATH
+			LOG_FMT_CMDLINE
+      LOG_FMT_IHASH
+		);
+	/* Already have data in the log, so add a newline to space the
+	 * log entries.
+	 */
+
+  _SB_WRITE_STR("\nI: ");
+  _SB_WRITE_STR(hash);
+  _SB_WRITE_STR(" ");
+	_SB_WRITE_STR(path);
 	_SB_WRITE_STR("\n");
 
 	ret = true;
@@ -893,8 +947,10 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
 	int old_errno = errno;
 	int result;
 	bool access, debug, verbose, set;
+  SHA256_CTX shactx;
 
 	absolute_path = resolve_path(file, 0);
+
 	/* Do not bother dereferencing symlinks when we are using a function that
 	 * itself does not dereference.  This speeds things up and avoids updating
 	 * the atime implicitly. #415475
@@ -905,6 +961,7 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
 		resolved_path = resolve_path(file, 1);
 	if (!absolute_path || !resolved_path)
 		goto error;
+
 	sb_debug_dyn("absolute_path: %s\n", absolute_path);
 	sb_debug_dyn("resolved_path: %s\n", resolved_path);
 
@@ -915,7 +972,7 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
 	if (set)
 		sbcontext->debug = debug;
 
-	result = check_access(sbcontext, sb_nr, func, flags, absolute_path, resolved_path);
+  result = check_access(sbcontext, sb_nr, func, flags, absolute_path, resolved_path);
 
 	if (unlikely(verbose)) {
 		int sym_len = SB_MAX_STRING_LEN + 1 - strlen(func);
@@ -946,6 +1003,53 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
 		if (!worked && errno)
 			goto error;
 	}
+
+  // Check whether the file has been accessed before
+  HashResult previous = hashtbl_lookup(&seen_tbl, resolved_path);
+  if (!previous.present && access) {
+    // Record this path
+    hashtbl_insert(&seen_tbl, resolved_path, NULL, NULL);
+
+    // The file could be modified by the build, but we only want to record
+    // its hash before the first access.
+    sha256_init(&shactx);
+    struct stat st;
+    if (stat(resolved_path, &st) != 0) {
+      goto error;
+    }
+    if (S_ISREG(st.st_mode)) {
+      // Real file, not accessed before, so hash it.
+      int fd = open(resolved_path, O_RDONLY);
+      if (fd > 0) {
+        char buf[4096];
+        uint64_t total_read = 0;
+        int len = read(fd, buf, sizeof(buf));
+        while (len > 0 && total_read + len < st.st_size) {
+          total_read += len;
+          sha256_update(&shactx, buf, len);
+          len = read(fd, buf, sizeof(buf));
+        }
+        close(fd);
+        if (len < 0) {
+          goto error;
+        }
+        BYTE hash[32];
+        char hash_to_string[65];
+        sha256_final(&shactx, hash);
+
+        for (int i = 0; i < sizeof(hash); i++) {
+          snprintf(hash_to_string + 2 * i, sizeof(hash_to_string) - 2 * i,
+                   "%02x", hash[i] & 0xff);
+        }
+        bool worked = write_logfile_hash(log_path, resolved_path, hash_to_string);
+        if (!worked && errno) {
+          goto error;
+        }
+      } else {
+        goto error;
+      }
+    }
+  }
 
 	free(absolute_path);
 	if (absolute_path != resolved_path)
@@ -1294,4 +1398,7 @@ void sb_free_envp(struct sb_envp_ctx * envp_ctx)
 	 */
 	if (envp != envp_ctx->orig_envp)
 		free(envp);
+
+  /* Destroy hashtable */
+  hashtbl_destroy(&seen_tbl);
 }

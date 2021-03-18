@@ -5,7 +5,7 @@ touch ChangeLog
 
 # avoid ugly warnings due to mismatch between local libtool and
 # whatever updated version is on the host
-rm -f m4/*.m4
+# rm -f m4/*.m4
 
 # not everyone has sys-devel/autoconf-archive installed
 has() { [[ " ${*:2} " == *" $1 "* ]] ; }

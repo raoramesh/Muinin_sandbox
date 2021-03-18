@@ -23,10 +23,14 @@ libsandbox_la_LDFLAGS = \
 	-avoid-version \
 	$(LDFLAG_VER),libsandbox.map
 libsandbox_la_SOURCES = \
+	hashtbl.h    \
+	hashtbl.c		 \
 	libsandbox.h \
 	libsandbox.c \
 	lock.c       \
 	memory.c     \
+	sha256.h		 \
+	sha256.c		 \
 	trace.c      \
 	wrappers.h   \
 	wrappers.c   \

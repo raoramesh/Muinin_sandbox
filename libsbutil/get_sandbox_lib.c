@@ -27,8 +27,9 @@ void get_sandbox_lib(char *path)
 		void *hndl = dlopen(path, RTLD_LAZY);
 		if (!hndl)
 			snprintf(path, SB_PATH_MAX, "%s/%s", LIBSANDBOX_PATH, LIB_NAME);
-		else
+		else {
 			dlclose(hndl);
+    }
 	}
 	restore_errno();
 }
