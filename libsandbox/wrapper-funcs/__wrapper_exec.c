@@ -64,6 +64,25 @@ static bool sb_check_exec(const char *filename, char *const argv[])
 		if (getuid() != 0)
 			run_in_process = false;
 
+  /* We should have some things that are banned for run-in-process */
+  const char *exclude_proc_env = getenv("SANDBOX_OUTPROC");
+  if (!exclude_proc_env) {
+    exclude_proc_env = "";
+  }
+
+  const char *sandbox_proc_start = exclude_proc_env;
+  while (*sandbox_proc_start) {
+    const char *end_ptr = strchr(sandbox_proc_start, ':');
+    if (!strncmp(sandbox_proc_start, filename, end_ptr - sandbox_proc_start)) {
+      run_in_process = false;
+    }
+    if (end_ptr) {
+      sandbox_proc_start = end_ptr + 1;
+    } else {
+      sandbox_proc_start += strlen(sandbox_proc_start);
+    }
+  }
+
 	/* We also need to ptrace programs that interpose their own allocator.
 	 * http://crbug.com/586444
 	 */

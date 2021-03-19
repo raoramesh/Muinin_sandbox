@@ -976,6 +976,7 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
 	int result;
 	bool access, debug, verbose, set;
   SHA256_CTX shactx;
+  int esource = 0;
 
 	absolute_path = resolve_path(file, 0);
 
@@ -1022,14 +1023,18 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
 
 	if (unlikely(!access)) {
 		bool worked = write_logfile(log_path, func, file, absolute_path, resolved_path, access);
-		if (!worked && errno)
+		if (!worked && errno) {
+      esource = __LINE__;
 			goto error;
+    }
 	}
 
 	if (unlikely(debug)) {
 		bool worked = write_logfile(debug_log_path, func, file, absolute_path, resolved_path, access);
-		if (!worked && errno)
+		if (!worked && errno) {
+      esource = __LINE__;
 			goto error;
+    }
 	}
 
   // Check whether the file has been accessed before
@@ -1054,6 +1059,7 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
         }
         close(fd);
         if (len < 0) {
+          esource = __LINE__;
           goto error;
         }
 
@@ -1067,10 +1073,9 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
         }
         bool worked = write_logfile_hash(log_path, resolved_path, hash_to_string);
         if (!worked && errno) {
+          esource = __LINE__;
           goto error;
         }
-      } else {
-        goto error;
       }
     }
   }
@@ -1115,11 +1120,13 @@ static int check_syscall(sbcontext_t *sbcontext, int sb_nr, const char *func,
 	sb_ebort("ISE: %s(%s)\n"
 		"\tabs_path: %s\n"
 		"\tres_path: %s\n"
-		"\terrno=%i: %s\n",
+		"\terrno=%i: %s\n"
+    "\tesrc=%i\n",
 		func, file,
 		absolute_path,
 		resolved_path,
-		errno, strerror(errno));
+    errno, strerror(errno),
+    esource);
 }
 
 bool is_sandbox_on(void)

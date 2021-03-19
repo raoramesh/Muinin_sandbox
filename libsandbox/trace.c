@@ -354,6 +354,7 @@ static bool trace_check_syscall(const struct syscall_entry *se, void *regs)
 	state.regs = regs;
 	state.nr = nr = se->sys;
 	state.func = name = se->name;
+
 	if (nr == SB_NR_UNDEF)          goto done;
 	else if (nr == SB_NR_MKDIR)     state.pre_check = sb_mkdirat_pre_check;
 	else if (nr == SB_NR_MKDIRAT)   state.pre_check = sb_mkdirat_pre_check;
