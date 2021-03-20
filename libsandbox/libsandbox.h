@@ -46,11 +46,16 @@
 #define  SB_SAFE_OPEN_CHAR(_path, _mode) \
          SB_SAFE_OPEN_CHAR_AT(AT_FDCWD, _path, _mode)
 
+#define  SB_SAFE_CONNECT_INT(_fd, _sa, _salen, _path) \
+       __SB_SAFE(before_syscall_connect_int(_fd, _sa, _salen, _path))
+
 bool is_sandbox_on(void);
 bool before_syscall(int, int, const char *, const char *, int);
 bool before_syscall_access(int, int, const char *, const char *, int);
 bool before_syscall_open_int(int, int, const char *, const char *, int);
 bool before_syscall_open_char(int, int, const char *, const char *, const char *);
+
+bool before_syscall_connect_int(int, const struct sockaddr *sa, socklen_t salen, const char *path);
 
 void *get_dlsym(const char *symname, const char *symver);
 

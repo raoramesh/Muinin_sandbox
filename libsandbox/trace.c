@@ -26,7 +26,7 @@ static long _do_ptrace(sb_ptrace_req_t request, const char *srequest, void *addr
 #ifdef DEBUG
 # define SBDEBUG 1
 #else
-# define SBDEBUG 0
+# define SBDEBUG 1 // 0
 #endif
 #define __sb_debug(fmt, args...) do { if (SBDEBUG) sb_eraw(fmt, ## args); } while (0)
 #define _sb_debug(fmt, args...)  do { if (SBDEBUG) sb_ewarn("TRACE (pid=%i):%s: " fmt, getpid(), __func__, ## args); } while (0)
@@ -216,10 +216,12 @@ static const char *strsig(int sig)
 
 static void trace_child_signal(int signo, siginfo_t *info, void *context)
 {
+  /*
 	sb_debug("got sig %s(%i): code:%s(%i) status:%s(%i)",
 		strsig(signo), signo,
 		strcld_chld(info->si_code), info->si_code,
 		strsig(info->si_status), info->si_status);
+  */
 
 	switch (info->si_code) {
 		case CLD_DUMPED:
@@ -355,6 +357,8 @@ static bool trace_check_syscall(const struct syscall_entry *se, void *regs)
 	state.nr = nr = se->sys;
 	state.func = name = se->name;
 
+  sb_debug("syscall %d\n", nr);
+
 	if (nr == SB_NR_UNDEF)          goto done;
 	else if (nr == SB_NR_MKDIR)     state.pre_check = sb_mkdirat_pre_check;
 	else if (nr == SB_NR_MKDIRAT)   state.pre_check = sb_mkdirat_pre_check;
@@ -431,10 +435,23 @@ static bool trace_check_syscall(const struct syscall_entry *se, void *regs)
 			ret = 1;
 		free(path);
 		return ret;
-	}
+	} else if (nr == SB_NR_CONNECT) {
+    int sockfd = trace_arg(regs, 1);
+    long sockaddr_ptr = trace_arg(regs, 2);
+    socklen_t salen = trace_arg(regs, 3);
+    long addr_family = do_peekdata(sockaddr_ptr) & 0xffff;
+    if (addr_family == AF_UNIX) {
+      char *path = do_peekstr(sockaddr_ptr + 2);
+      sb_debug("connect af_unix %s\n", path);
+      free(path);
+    } else {
+      sb_debug("connect af %d\n", addr_family);
+    }
+    return 1;
+  }
 
  done:
-	__sb_debug("(...)");
+	// __sb_debug("(...)");
 	return ret;
 }
 
@@ -459,8 +476,9 @@ static void trace_loop(void)
 			if (event == PTRACE_EVENT_EXEC) {
 				_sb_debug("hit exec!");
 				before_exec = false;
-			} else
-				_sb_debug("waiting for exec; status: %#x", status);
+			} else {
+				// _sb_debug("waiting for exec; status: %#x", status);
+      }
 			ret = trace_get_regs(&regs);
 			tbl_after_fork = trace_check_personality(&regs);
 			continue;
@@ -472,7 +490,7 @@ static void trace_loop(void)
 		se = lookup_syscall_in_tbl(tbl_after_fork, nr);
 		ret = trace_get_regs(&regs);
 		if (before_syscall) {
-			_sb_debug("%s:%i", se ? se->name : "IDK", nr);
+			//_sb_debug("%s:%i", se ? se->name : "IDK", nr);
 			if (!trace_check_syscall(se, &regs)) {
 				sb_debug_dyn("trace_loop: forcing EPERM after %s\n", se->name);
 				trace_set_sysnum(&regs, -1);
@@ -489,10 +507,10 @@ static void trace_loop(void)
 			} else
 				ret = trace_result(&regs, &err);
 
-			__sb_debug(" = %li", ret);
-			if (err)
-				__sb_debug(" (errno: %i: %s)", err, strerror(err));
-			__sb_debug("\n");
+			//__sb_debug(" = %li", ret);
+			//if (err)
+      //__sb_debug(" (errno: %i: %s)", err, strerror(err));
+			//__sb_debug("\n");
 		}
 
 		before_syscall = !before_syscall;

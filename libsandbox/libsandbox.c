@@ -1255,6 +1255,11 @@ bool before_syscall_open_char(int dirfd, int sb_nr, const char *func, const char
 	return before_syscall(dirfd, sb_nr, ext_func, file, 0);
 }
 
+bool before_syscall_connect_int(int fd, const struct sockaddr *sa, socklen_t salen, const char *path)
+{
+  return before_syscall(fd, SB_NR_CONNECT, "connect_unix", path, 0);
+}
+
 typedef struct {
 	const char *name;
 	size_t len;

@@ -75,3 +75,5 @@ futimesat
 lutimes
 fork
 vfork
+connect
+__connect
