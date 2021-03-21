@@ -206,7 +206,7 @@ static int spawn_shell(char *argv_bash[], char **env, int debug)
 	return 0;
 }
 
-int main(int argc, char **argv)
+int sb_main(int argc, char **argv)
 {
 	int sandbox_log_presence = 0;
 

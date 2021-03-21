@@ -5,6 +5,7 @@ AM_CPPFLAGS = $(SANDBOX_DEFINES)
 SUBDIRS = \
 	libsbutil  \
 	libsandbox \
+	libsbmain  \
 	src        \
 	tests
 
@@ -17,7 +18,8 @@ dist_pkgdata_DATA  = data/sandbox.bashrc
 noinst_LTLIBRARIES =
 
 libsandbox: libsbutil
-src: libsbutil
+libsbmain: libsbutil
+src: libsbutil libsbmain
 tests: src
 
 EXTRA_DIST = \

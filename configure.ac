@@ -466,6 +466,7 @@ AC_CONFIG_FILES([
 	etc/sandbox.d/00default
 	libsandbox/Makefile
 	libsbutil/Makefile
+  libsbmain/Makefile
 	src/Makefile
 	tests/atlocal
 	tests/Makefile
