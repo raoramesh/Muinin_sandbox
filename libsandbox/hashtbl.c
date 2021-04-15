@@ -64,8 +64,8 @@ static void expand(Hashtable *h) {
     return;
   }
 
-  ListElement *new_buckets = realloc(h->buckets, sizeof(ListElement) * h->num_buckets * 2);
-  init_buckets(new_buckets, h->num_buckets, h->num_buckets * 2);
+  ListElement *new_buckets = calloc(h->num_buckets * 2, sizeof(ListElement));
+  init_buckets(new_buckets, 0, h->num_buckets * 2);
 
   // Iterate hash numbers
   for (uint32_t i = 0; i < h->num_buckets; i++) {
@@ -73,9 +73,8 @@ static void expand(Hashtable *h) {
     while (item != &h->buckets[i]) {
       HashBucket *b = (HashBucket*)item;
       HashBucket *next = (HashBucket*)b->node.next;
-      if (b->hash & h->num_buckets) {
-        transfer(&b->node, &h->buckets[i+h->num_buckets]);
-      }
+      uint32_t newhash = b->hash & ((h->num_buckets * 2) - 1);
+      transfer(&b->node, &new_buckets[newhash]);
       item = &next->node;
     }
   }
@@ -142,6 +141,7 @@ HashResult hashtbl_insert(Hashtable *h, const char *string, free_extra_t free_ex
   target->prev = &hb->node;
   hb->node.next = target;
 
+  h->population += 1;
   return make_result(hb);
 }
 

@@ -359,7 +359,7 @@ int sb_main(int argc, char **argv)
 		shell_exit = 1; /* ??? */
 
 	if (!is_env_on(ENV_SANDBOX_TESTING))
-		if (sandbox_log_presence && shell_exit == 0)
+		if (sandbox_log_presence && shell_exit == 0 && !sandbox_quiet)
 			shell_exit = 1;
 	return shell_exit;
 
