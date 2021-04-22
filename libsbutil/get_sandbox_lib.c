@@ -21,9 +21,12 @@
  */
 void get_sandbox_lib(char *path)
 {
+  char *env_sandbox_lib = getenv(ENV_SANDBOX_LIB);
 	save_errno();
 	strcpy(path, LIB_NAME);
-	if (strncmp("/usr/lib", LIBSANDBOX_PATH, 8)) {
+  if (env_sandbox_lib) {
+    strcpy(path, env_sandbox_lib);
+  } else if (strncmp("/usr/lib", LIBSANDBOX_PATH, 8)) {
 		void *hndl = dlopen(path, RTLD_LAZY);
 		if (!hndl)
 			snprintf(path, SB_PATH_MAX, "%s/%s", LIBSANDBOX_PATH, LIB_NAME);
