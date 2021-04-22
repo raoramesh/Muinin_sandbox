@@ -12,20 +12,24 @@
 
 /* Where the file exists in our source tree */
 #define LOCAL_SANDBOX_CONF_FILE "/etc/sandbox.conf"
+char *SANDBOX_CONF_FILE = ETCDIR "/sandbox.conf";
 
-char *get_sandbox_conf(void)
+void get_sandbox_conf(char *path)
 {
 	char *ret = SANDBOX_CONF_FILE;
-  char *sandbox_conf_env = getenv("SANDBOX_CONF_LOCATION");
+  char *sandbox_conf_env = getenv(ENV_SANDBOX_CONF);
 	save_errno();
-	if (is_env_on(ENV_SANDBOX_TESTING) || sandbox_conf_env) {
+  if (sandbox_conf_env) {
+    strcpy(path, sandbox_conf_env);
+  } else if (is_env_on(ENV_SANDBOX_TESTING)) {
 		char *abs = sandbox_conf_env;
     if (!abs) {
       abs = getenv("abs_top_srcdir");
     }
-		ret = xmalloc(strlen(abs) + strlen(LOCAL_SANDBOX_CONF_FILE) + 1);
-		sprintf(ret, "%s%s", abs, LOCAL_SANDBOX_CONF_FILE);
-	}
+		sprintf(path, "%s%s", abs, LOCAL_SANDBOX_CONF_FILE);
+	} else {
+    strcpy(path, ret);
+  }
+
 	restore_errno();
-	return ret;
 }

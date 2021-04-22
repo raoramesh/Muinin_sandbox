@@ -80,9 +80,14 @@ error:
 
 static char *sb_conf_file(void)
 {
-	static char *conf_file;
-	if (!conf_file)
-		conf_file = get_sandbox_conf();
+  static int conf_file_set = 0;
+	static char *conf_file[SB_PATH_MAX];
+
+	if (!conf_file_set) {
+    conf_file_set = 1;
+		get_sandbox_conf(conf_file);
+  }
+
 	return conf_file;
 }
 
@@ -257,6 +262,7 @@ char **setup_environ(struct sandbox_info_t *sandbox_info)
 	 * new environment below */
 	unsetenv(ENV_SANDBOX_ON);
 	unsetenv(ENV_SANDBOX_LIB);
+  unsetenv(ENV_SANDBOX_CONF);
 	unsetenv(ENV_SANDBOX_BASHRC);
 	unsetenv(ENV_SANDBOX_LOG);
 	unsetenv(ENV_SANDBOX_DEBUG_LOG);
@@ -290,6 +296,7 @@ char **setup_environ(struct sandbox_info_t *sandbox_info)
 	 * weirdness that I cannot remember */
 	sb_setenv(&new_environ, ENV_SANDBOX_ON, "1");
 	sb_setenv(&new_environ, ENV_SANDBOX_LIB, sandbox_info->sandbox_lib);
+  sb_setenv(&new_environ, ENV_SANDBOX_CONF, sandbox_info->sandbox_conf);
 	sb_setenv(&new_environ, ENV_SANDBOX_BASHRC, sandbox_info->sandbox_rc);
 	sb_setenv(&new_environ, ENV_SANDBOX_LOG, sandbox_info->sandbox_log);
 	sb_setenv(&new_environ, ENV_SANDBOX_DEBUG_LOG, sandbox_info->sandbox_debug_log);

@@ -16,7 +16,7 @@
 #include "headers.h"
 #include "include/rcscripts/rcutil.h"
 
-#define SANDBOX_CONF_FILE      ETCDIR "/sandbox.conf"
+extern char *SANDBOX_CONF_FILE; // #define SANDBOX_CONF_FILE      ETCDIR "/sandbox.conf"
 #define SANDBOX_CONFD_DIR      ETCDIR "/sandbox.d"
 
 #define LIB_NAME               "libsandbox.so"
@@ -43,6 +43,7 @@
 #define ENV_SANDBOX_TESTING    "__SANDBOX_TESTING"
 
 #define ENV_SANDBOX_LIB        "SANDBOX_LIB"
+#define ENV_SANDBOX_CONF       "SANDBOX_CONF"
 #define ENV_SANDBOX_BASHRC     "SANDBOX_BASHRC"
 #define ENV_SANDBOX_LOG        "SANDBOX_LOG"
 #define ENV_SANDBOX_DEBUG_LOG  "SANDBOX_DEBUG_LOG"
@@ -65,7 +66,7 @@ extern const char *colors[];
 #define COLOR_YELLOW           colors[2]
 #define COLOR_RED              colors[3]
 
-char *get_sandbox_conf(void);
+void get_sandbox_conf(char *path);
 char *get_sandbox_confd(char *path);
 void get_sandbox_lib(char *path);
 void get_sandbox_rc(char *path);

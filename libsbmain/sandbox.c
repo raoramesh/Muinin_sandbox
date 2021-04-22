@@ -58,6 +58,8 @@ static int setup_sandbox(struct sandbox_info_t *sandbox_info, bool interactive)
 	/* Generate sandbox lib path */
 	get_sandbox_lib(sandbox_info->sandbox_lib);
 
+  get_sandbox_conf(sandbox_info->sandbox_conf);
+
 	/* Generate sandbox bashrc path */
 	get_sandbox_rc(sandbox_info->sandbox_rc);
 

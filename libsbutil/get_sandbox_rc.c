@@ -15,12 +15,17 @@
 
 void get_sandbox_rc(char *path)
 {
+  const char *env_sandbox_bashrc = getenv(ENV_SANDBOX_BASHRC);
 	save_errno();
-	if (is_env_on(ENV_SANDBOX_TESTING))
+	if (is_env_on(ENV_SANDBOX_TESTING)) {
 		snprintf(path, SB_PATH_MAX, "%s/data/%s",
 			getenv("abs_top_srcdir"), BASHRC_NAME);
-	else
+  } else if (env_sandbox_bashrc) {
+    strcpy(path, env_sandbox_bashrc);
+  } else {
 		snprintf(path, SB_PATH_MAX, "%s/%s",
 			SANDBOX_BASHRC_PATH, BASHRC_NAME);
+  }
+
 	restore_errno();
 }

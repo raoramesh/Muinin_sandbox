@@ -131,9 +131,10 @@ static void show_usage(int status)
 		"You can use this to quickly test out sandbox behavior.\n"
 		"\n"
 		"Upon startup, initial settings are taken from these files / directories:\n"
-		"\t" SANDBOX_CONF_FILE "\n"
-		"\t" SANDBOX_CONFD_DIR "\n"
-	);
+		"\t%s\n"
+    "\t" SANDBOX_CONFD_DIR "\n",
+    SANDBOX_CONF_FILE
+  );
 
 	fprintf(fp, "\nOptions: -[%s]\n", PARSE_FLAGS + 1);
 	/* prescan the --long opt length to auto-align */
